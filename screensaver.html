@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Screensaver</title>
+    <link rel="stylesheet" href="assets/styles/screensaver.css" />
+  </head>
+  <body>
+    <div class="stage" aria-hidden="true">
+      <div class="curtain">
+        <div class="curtain-inner"></div>
+      </div>
+    </div>
+    <div class="stars" aria-hidden="true"></div>
+    <div class="shooting-stars" aria-hidden="true"></div>
+    <div class="bottom-artboard" aria-hidden="true">
+      <div class="bottom-artboard-track"></div>
+    </div>
+    <div class="grain" aria-hidden="true"></div>
+    <button class="fullscreen-toggle" type="button" tabindex="-1" aria-hidden="true" hidden>
+      Fullscreen (F)
+    </button>
+    <!-- <h1 class="title">Local,&nbsp;Software</h1> -->
+    <script>
+      const starsLayer = document.querySelector(".stars");
+      const shootingStarsLayer = document.querySelector(".shooting-stars");
+      const CURSOR_IDLE_MS = 700;
+      const SHOOTING_STAR_MIN_INTERVAL_MS = 900;
+      const SHOOTING_STAR_MAX_INTERVAL_MS = 2600;
+      const BOTTOM_ARTBOARD_SRC = "Artboard%204-8.png";
+      const STAR_COLOR_VARIANTS = [
+        { color: "rgba(214, 244, 255, 0.94)", glow: "rgba(162, 225, 255, 0.48)" },
+        { color: "rgba(204, 235, 255, 0.92)", glow: "rgba(124, 200, 255, 0.44)" },
+        { color: "rgba(210, 255, 238, 0.9)", glow: "rgba(96, 227, 185, 0.42)" },
+        { color: "rgba(224, 232, 255, 0.9)", glow: "rgba(145, 171, 244, 0.42)" },
+        { color: "rgba(198, 218, 246, 0.88)", glow: "rgba(93, 132, 210, 0.38)" },
+      ];
+      let hideCursorTimeoutId = null;
+
+      function isFullscreen() {
+        return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      }
+
+      function setCursorVisible(isVisible) {
+        document.body.classList.toggle("cursor-active", isVisible);
+      }
+
+      function markMouseActivity() {
+        setCursorVisible(true);
+        window.clearTimeout(hideCursorTimeoutId);
+        hideCursorTimeoutId = window.setTimeout(() => {
+          setCursorVisible(false);
+        }, CURSOR_IDLE_MS);
+      }
+
+      function layoutBottomArtboard() {
+        const wrap = document.querySelector(".bottom-artboard");
+        const track = document.querySelector(".bottom-artboard-track");
+        if (!wrap || !track) return;
+
+        const probe = new Image();
+        probe.onload = () => {
+          const nw = probe.naturalWidth || 1;
+          const nh = probe.naturalHeight || 1;
+          let stripH = wrap.getBoundingClientRect().height;
+          if (stripH <= 1) {
+            stripH = Math.min(window.innerHeight * 0.28, 220);
+          }
+          let tileW = (nw / nh) * stripH;
+          tileW = Math.max(1, Math.round(tileW * 1000) / 1000);
+
+          const vw = window.innerWidth;
+          const tileCount = Math.max(4, Math.ceil(vw / tileW) + 3);
+
+          track.replaceChildren();
+          for (let i = 0; i < tileCount; i += 1) {
+            const img = document.createElement("img");
+            img.className = "bottom-artboard-tile";
+            img.src = BOTTOM_ARTBOARD_SRC;
+            img.alt = "";
+            img.loading = "eager";
+            img.decoding = "async";
+            img.style.width = `${tileW}px`;
+            img.style.height = "100%";
+            track.appendChild(img);
+          }
+
+          document.documentElement.style.setProperty("--bottom-art-tile-width", `${tileW}px`);
+        };
+        probe.onerror = () => {
+          track.replaceChildren();
+        };
+        probe.src = BOTTOM_ARTBOARD_SRC;
+      }
+
+      function populateStars() {
+        if (!starsLayer) return;
+
+        const periodValue = getComputedStyle(document.documentElement)
+          .getPropertyValue("--curtain-period")
+          .trim();
+        const period = Number.parseFloat(periodValue) || 0;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const starSheetWidth = period > 0 ? period : viewportWidth;
+        const area = starSheetWidth * viewportHeight;
+        const targetStarCount = Math.max(50, Math.min(170, Math.round(area / 20000)));
+        const seamPadding = 24;
+        const fragment = document.createDocumentFragment();
+        const aspectRatio = starSheetWidth / Math.max(1, viewportHeight);
+        const columns = Math.max(8, Math.round(Math.sqrt(targetStarCount * aspectRatio)));
+        const rows = Math.max(6, Math.round(targetStarCount / columns));
+        const cellWidth = starSheetWidth / columns;
+        const cellHeight = viewportHeight / rows;
+
+        starsLayer.replaceChildren();
+
+        let starShapeAlternate = 0;
+
+        for (let row = 0; row < rows; row += 1) {
+          for (let col = 0; col < columns; col += 1) {
+            const shapeClass =
+              starShapeAlternate % 2 === 0 ? "star star--dot" : "star star--spike";
+            starShapeAlternate += 1;
+
+            const size = 6 + Math.random() * 14;
+            const opacity = 0.35 + Math.random() * 0.65;
+            const colorVariant =
+              STAR_COLOR_VARIANTS[Math.floor(Math.random() * STAR_COLOR_VARIANTS.length)];
+            const jitterX = (Math.random() - 0.5) * cellWidth * 0.8;
+            const jitterY = (Math.random() - 0.5) * cellHeight * 0.8;
+            const baseLeft = -seamPadding + (col + 0.5) * cellWidth + jitterX;
+            const baseTop = (row + 0.5) * cellHeight + jitterY;
+            const positions =
+              period > 0 ? [baseLeft - period, baseLeft, baseLeft + period] : [baseLeft];
+
+            for (const left of positions) {
+              const clone = document.createElement("span");
+              clone.className = shapeClass;
+              clone.style.left = `${left}px`;
+              clone.style.top = `${baseTop}px`;
+              clone.style.setProperty("--star-size", `${size}px`);
+              clone.style.setProperty("--star-color", colorVariant.color);
+              clone.style.setProperty("--star-glow", colorVariant.glow);
+              clone.style.setProperty("--star-pulse-duration", `${(2.4 + Math.random() * 2.6).toFixed(2)}s`);
+              clone.style.setProperty("--star-pulse-delay", `${(-Math.random() * 14).toFixed(2)}s`);
+              clone.style.opacity = `${opacity}`;
+              fragment.appendChild(clone);
+            }
+          }
+        }
+
+        starsLayer.appendChild(fragment);
+      }
+
+      function spawnShootingStar() {
+        if (!shootingStarsLayer) return;
+
+        const star = document.createElement("span");
+        const duration = 650 + Math.random() * 900;
+        const angleDegrees = 24;
+        const angleRadians = (angleDegrees * Math.PI) / 180;
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+        const diagonal = Math.hypot(viewportWidth, viewportHeight);
+        const travelDistance = diagonal * (1.15 + Math.random() * 0.35);
+        const travelX = -Math.cos(angleRadians) * travelDistance;
+        const travelY = Math.sin(angleRadians) * travelDistance;
+        const offscreenMargin = 160;
+        const centerWeightedX =
+          ((Math.random() + Math.random() + Math.random() + Math.random()) / 4) * viewportWidth;
+        const centerWeightedY =
+          ((Math.random() + Math.random() + Math.random() + Math.random()) / 4) * viewportHeight;
+        const focusProgress = 0.42 + Math.random() * 0.16;
+        let startLeft = centerWeightedX - travelX * focusProgress;
+        let startTop = centerWeightedY - travelY * focusProgress;
+
+        // Keep entry points off-screen while preserving the same travel angle.
+        const offscreenStep = 120;
+        while (startLeft < viewportWidth + offscreenMargin && startTop > -offscreenMargin) {
+          startLeft += Math.cos(angleRadians) * offscreenStep;
+          startTop -= Math.sin(angleRadians) * offscreenStep;
+        }
+        const streakLength = 140 + Math.random() * 120;
+        const streakThickness = 1 + Math.random() * 1.2;
+
+        star.className = "shooting-star";
+        star.style.left = `${startLeft}px`;
+        star.style.top = `${startTop}px`;
+        star.style.setProperty("--shooting-duration", `${duration}ms`);
+        star.style.setProperty("--shooting-length", `${streakLength}px`);
+        star.style.setProperty("--shooting-thickness", `${streakThickness}px`);
+        star.style.setProperty("--shooting-travel-x", `${travelX}px`);
+        star.style.setProperty("--shooting-travel-y", `${travelY}px`);
+
+        star.addEventListener("animationend", () => {
+          star.remove();
+        });
+
+        shootingStarsLayer.appendChild(star);
+      }
+
+      function scheduleNextShootingStar() {
+        const nextInMs =
+          SHOOTING_STAR_MIN_INTERVAL_MS +
+          Math.random() * (SHOOTING_STAR_MAX_INTERVAL_MS - SHOOTING_STAR_MIN_INTERVAL_MS);
+        window.setTimeout(() => {
+          const burstCount = 2 + Math.floor(Math.random() * 2);
+          for (let i = 0; i < burstCount; i += 1) {
+            window.setTimeout(() => {
+              spawnShootingStar();
+            }, i * (120 + Math.random() * 180));
+          }
+          scheduleNextShootingStar();
+        }, nextInMs);
+      }
+
+      function handleKeydown(event) {
+        if (event.repeat) return;
+        if (event.key.toLowerCase() !== "f") return;
+        toggleFullscreen();
+      }
+
+      function toggleFullscreen() {
+        const root = document.documentElement;
+
+        if (isFullscreen()) {
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+            return;
+          }
+
+          if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+          }
+
+          return;
+        }
+
+        if (root.requestFullscreen) {
+          root.requestFullscreen().catch(() => {});
+          return;
+        }
+
+        if (root.webkitRequestFullscreen) {
+          root.webkitRequestFullscreen();
+        }
+      }
+
+      document.addEventListener("mousemove", markMouseActivity);
+      document.addEventListener("keydown", handleKeydown);
+      function onViewportResize() {
+        populateStars();
+        layoutBottomArtboard();
+      }
+
+      window.addEventListener("resize", onViewportResize);
+      populateStars();
+      layoutBottomArtboard();
+      scheduleNextShootingStar();
+    </script>
+  </body>
+</html>

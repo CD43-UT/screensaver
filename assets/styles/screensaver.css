@@ -1,0 +1,373 @@
+@font-face {
+  font-family: "ABC Diatype Mono";
+  font-weight: 400;
+  font-style: normal;
+  font-display: block;
+  src: url("../fonts/ABC%20Diatype%20Mono/ABCDiatypeMono-Regular-Trial.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "ABC Diatype Mono";
+  font-weight: 500;
+  font-style: normal;
+  font-display: block;
+  src: url("../fonts/ABC%20Diatype%20Mono/ABCDiatypeMono-Medium-Trial.woff2")
+    format("woff2");
+}
+@font-face {
+  font-family: "ABC Diatype Mono";
+  font-weight: 700;
+  font-style: normal;
+  font-display: block;
+  src: url("../fonts/ABC%20Diatype%20Mono/ABCDiatypeMono-Bold-Trial.woff2")
+    format("woff2");
+}
+
+:root {
+  --c1: #01040b;
+  --c2: #08213f;
+  --c3: #0b5f67;
+  --c4: #39c987;
+  --c5: #7ea3d4;
+
+  /* One full period of the stripe pattern, in pixels. The animation
+     translates by exactly this distance so the loop is seamless. */
+  --curtain-period: 1960px;
+  --curtain-step: calc(var(--curtain-period) / 8);
+  --curtain-duration: 22s;
+  --stars-duration: 29s;
+  /* One full tile crawl; 4× faster than curtain (same period scale). */
+  --bottom-artboard-duration: calc(var(--curtain-duration) / 4);
+  --bottom-artboard-height: min(28vh, 220px);
+  --bottom-art-tile-width: 400px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: var(--c1);
+  cursor: none;
+}
+
+body.cursor-active {
+  cursor: default;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--c1);
+  z-index: 0;
+}
+
+/*
+ * Geometry and performance notes:
+ *
+ * - The .curtain wrapper applies the 3D perspective + rotation (static).
+ *   Its child, .curtain-inner, carries the stripe gradient and slides via
+ *   `transform: translateX(...)`, which is GPU-accelerated and does not
+ *   trigger per-frame repaints.
+ *
+ * - With transform-origin at the left edge, rotateY(θ) sends the right
+ *   edge into the distance. For the projection to cover the viewport,
+ *   we need perspective d > W * tan(θ). Smaller θ means a smaller wrapper
+ *   element suffices — critical for staying under GPU texture limits on
+ *   Retina/4K/5K displays (physical max ~16384 px).
+ *
+ * - At θ=30° and d=200vw, the wrapper only needs to be ~170vw wide; we
+ *   use 200vw × 200vh for a safety margin. On a 6K Retina display this
+ *   is ~12000 × 6800 physical px — well under the compositor limit.
+ */
+.curtain {
+  position: absolute;
+  top: -50vh;
+  left: 0;
+  width: 200vw;
+  height: 200vh;
+  transform-origin: 0% 50%;
+  transform: perspective(200vw) rotateY(30deg);
+  overflow: hidden;
+  filter: saturate(1.18) contrast(1.12) brightness(1.04);
+}
+
+.curtain-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* one extra period of width so translating leftward by -period still
+     covers the wrapper's right edge seamlessly */
+  width: calc(100% + var(--curtain-period));
+  height: 100%;
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--c1) 0px,
+    #031025 calc(var(--curtain-step) * 0.7),
+    #07203d calc(var(--curtain-step) * 1.2),
+    var(--c2) calc(var(--curtain-step) * 1.6),
+    #0a3551 calc(var(--curtain-step) * 1.9),
+    #0d4c5e calc(var(--curtain-step) * 2.2),
+    var(--c3) calc(var(--curtain-step) * 2.5),
+    #13806e calc(var(--curtain-step) * 2.8),
+    #21a684 calc(var(--curtain-step) * 3.1),
+    var(--c4) calc(var(--curtain-step) * 3.45),
+    #5bc2a6 calc(var(--curtain-step) * 3.7),
+    #74b6c7 calc(var(--curtain-step) * 3.9),
+    var(--c5) calc(var(--curtain-step) * 4),
+    #74b6c7 calc(var(--curtain-step) * 4.1),
+    #5bc2a6 calc(var(--curtain-step) * 4.3),
+    var(--c4) calc(var(--curtain-step) * 4.55),
+    #21a684 calc(var(--curtain-step) * 4.9),
+    #13806e calc(var(--curtain-step) * 5.2),
+    var(--c3) calc(var(--curtain-step) * 5.5),
+    #0d4c5e calc(var(--curtain-step) * 5.8),
+    #0a3551 calc(var(--curtain-step) * 6.1),
+    var(--c2) calc(var(--curtain-step) * 6.4),
+    #07203d calc(var(--curtain-step) * 6.8),
+    #031025 calc(var(--curtain-step) * 7.3),
+    var(--c1) var(--curtain-period)
+  );
+  background-size: var(--curtain-period) 100%;
+  background-repeat: repeat-x;
+  animation: curtain-slide var(--curtain-duration) linear infinite;
+  will-change: transform;
+  background-position: calc(var(--curtain-period) / -2) 0;
+}
+
+@keyframes curtain-slide {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(-1 * var(--curtain-period)), 0, 0);
+  }
+}
+
+.bottom-artboard {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: var(--bottom-artboard-height);
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 6;
+}
+
+.bottom-artboard-track {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 0;
+  height: 100%;
+  width: max-content;
+  animation: bottom-artboard-scroll var(--bottom-artboard-duration) linear infinite;
+  will-change: transform;
+}
+
+.bottom-artboard-tile {
+  flex: 0 0 auto;
+  display: block;
+  height: 100%;
+  width: auto;
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  object-fit: contain;
+  object-position: bottom center;
+}
+
+@keyframes bottom-artboard-scroll {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(calc(-1 * var(--bottom-art-tile-width)), 0, 0);
+  }
+}
+
+.grain {
+  position: fixed;
+  inset: -50%;
+  pointer-events: none;
+  z-index: 9;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+.stars {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: calc(100% + var(--curtain-period));
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+  animation: curtain-slide var(--stars-duration) linear infinite;
+  will-change: transform;
+}
+
+.shooting-stars {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+  overflow: hidden;
+}
+
+.star {
+  --star-size: 10px;
+  --star-color: rgba(235, 248, 255, 0.9);
+  --star-glow: rgba(185, 235, 255, 0.45);
+  --star-pulse-duration: 3.4s;
+  --star-pulse-delay: 0s;
+  position: absolute;
+  width: var(--star-size);
+  height: var(--star-size);
+  transform: translate(-50%, -50%);
+  animation: star-twinkle-soft var(--star-pulse-duration) ease-in-out infinite;
+  animation-delay: var(--star-pulse-delay);
+}
+
+.star::before,
+.star::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  background: var(--star-color);
+  border-radius: 999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 12px var(--star-glow);
+  animation: star-twinkle-halo var(--star-pulse-duration) ease-in-out infinite;
+  animation-delay: var(--star-pulse-delay);
+}
+
+@keyframes star-twinkle-soft {
+  0%,
+  100% {
+    filter: brightness(1);
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    filter: brightness(1.26);
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+@keyframes star-twinkle-halo {
+  0%,
+  100% {
+    box-shadow: 0 0 calc(var(--star-size) * 0.45) var(--star-glow);
+  }
+  50% {
+    box-shadow:
+      0 0 calc(var(--star-size) * 0.65) var(--star-glow),
+      0 0 calc(var(--star-size) * 1.1) rgba(210, 245, 255, 0.22);
+  }
+}
+
+/* Design 1: solid dot */
+.star--dot::before {
+  width: calc(var(--star-size) * 0.52);
+  height: calc(var(--star-size) * 0.52);
+  border-radius: 50%;
+}
+
+.star--dot::after {
+  display: none;
+}
+
+/* Design 2: four-point star (long vertical, shorter horizontal) */
+.star--spike::before {
+  width: max(1px, calc(var(--star-size) * 0.11));
+  height: calc(var(--star-size) * 1.06);
+}
+
+.star--spike::after {
+  width: calc(var(--star-size) * 0.4);
+  height: max(1px, calc(var(--star-size) * 0.11));
+}
+
+.shooting-star {
+  --shooting-duration: 1000ms;
+  --shooting-length: 180px;
+  --shooting-thickness: 1.4px;
+  --shooting-angle: -24deg;
+  --shooting-travel-x: -420px;
+  --shooting-travel-y: 190px;
+  position: absolute;
+  width: var(--shooting-length);
+  height: var(--shooting-thickness);
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(182, 230, 255, 0.55) 45%,
+    rgba(244, 252, 255, 1) 100%
+  );
+  filter: drop-shadow(0 0 8px rgba(200, 238, 255, 0.7));
+  transform: translate3d(0, 0, 0) rotate(var(--shooting-angle));
+  transform-origin: right center;
+  opacity: 0;
+  animation: shooting-star-flight var(--shooting-duration) linear forwards;
+}
+
+@keyframes shooting-star-flight {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(var(--shooting-angle)) scaleX(0.4);
+  }
+  10% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) rotate(var(--shooting-angle)) scaleX(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--shooting-travel-x), var(--shooting-travel-y), 0)
+      rotate(var(--shooting-angle)) scaleX(0.85);
+  }
+}
+
+.fullscreen-toggle {
+  display: none;
+}
+
+.title {
+  position: fixed;
+  top: 6vh;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: "ABC Diatype Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-weight: 500;
+  font-size: clamp(18px, 2.2vw, 32px);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 0 24px rgba(255, 255, 255, 0.25);
+  user-select: none;
+}
+
+/* .title::before,
+.title::after {
+  content: "";
+  display: inline-block;
+  width: clamp(24px, 4vw, 56px);
+  height: 1px;
+  background: rgba(255, 255, 255, 0.7);
+  vertical-align: middle;
+  margin: 0 0.9em;
+  transform: translateY(-0.1em);
+} */
