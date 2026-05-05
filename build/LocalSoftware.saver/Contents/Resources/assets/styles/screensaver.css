@@ -85,7 +85,8 @@ body {
   transform-origin: 0% 50%;
   transform: perspective(200vw) rotateY(30deg);
   overflow: hidden;
-  filter: saturate(1.15) brightness(1.05);
+  filter: none;
+  will-change: transform;
 }
 
 .curtain-inner {
@@ -109,6 +110,8 @@ body {
   );
   animation: curtain-slide var(--curtain-duration) linear infinite;
   will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 @keyframes curtain-slide {

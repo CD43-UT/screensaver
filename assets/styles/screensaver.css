@@ -96,7 +96,9 @@ body.cursor-active {
   transform-origin: 0% 50%;
   transform: perspective(200vw) rotateY(30deg);
   overflow: hidden;
-  filter: saturate(1.18) contrast(1.12) brightness(1.04);
+  /* Keep this layer compositor-friendly while it translates continuously. */
+  filter: none;
+  will-change: transform;
 }
 
 .curtain-inner {
@@ -140,6 +142,8 @@ body.cursor-active {
   animation: curtain-slide var(--curtain-duration) linear infinite;
   will-change: transform;
   background-position: calc(var(--curtain-period) / -2) 0;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 @keyframes curtain-slide {
@@ -171,6 +175,9 @@ body.cursor-active {
   width: max-content;
   animation: bottom-artboard-scroll var(--bottom-artboard-duration) linear infinite;
   will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  contain: layout paint style;
 }
 
 .bottom-artboard-tile {
@@ -215,6 +222,7 @@ body.cursor-active {
   z-index: 2;
   animation: curtain-slide var(--stars-duration) linear infinite;
   will-change: transform;
+  contain: layout paint style;
 }
 
 .shooting-stars {
@@ -256,12 +264,12 @@ body.cursor-active {
 @keyframes star-twinkle-soft {
   0%,
   100% {
-    filter: brightness(1);
     transform: translate(-50%, -50%) scale(1);
+    opacity: 0.82;
   }
   50% {
-    filter: brightness(1.26);
     transform: translate(-50%, -50%) scale(1.05);
+    opacity: 1;
   }
 }
 
@@ -271,9 +279,7 @@ body.cursor-active {
     box-shadow: 0 0 calc(var(--star-size) * 0.45) var(--star-glow);
   }
   50% {
-    box-shadow:
-      0 0 calc(var(--star-size) * 0.65) var(--star-glow),
-      0 0 calc(var(--star-size) * 1.1) rgba(210, 245, 255, 0.22);
+    box-shadow: 0 0 calc(var(--star-size) * 0.65) var(--star-glow);
   }
 }
 
@@ -316,7 +322,7 @@ body.cursor-active {
     rgba(182, 230, 255, 0.55) 45%,
     rgba(244, 252, 255, 1) 100%
   );
-  filter: drop-shadow(0 0 8px rgba(200, 238, 255, 0.7));
+  filter: drop-shadow(0 0 4px rgba(200, 238, 255, 0.55));
   transform: translate3d(0, 0, 0) rotate(var(--shooting-angle));
   transform-origin: right center;
   opacity: 0;

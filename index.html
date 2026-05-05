@@ -37,6 +37,7 @@
         { color: "rgba(198, 218, 246, 0.88)", glow: "rgba(93, 132, 210, 0.38)" },
       ];
       let hideCursorTimeoutId = null;
+      let resizeRafId = null;
 
       function isFullscreen() {
         return Boolean(document.fullscreenElement || document.webkitFullscreenElement);
@@ -105,7 +106,7 @@
         const viewportHeight = window.innerHeight;
         const starSheetWidth = period > 0 ? period : viewportWidth;
         const area = starSheetWidth * viewportHeight;
-        const targetStarCount = Math.max(50, Math.min(170, Math.round(area / 20000)));
+        const targetStarCount = Math.max(42, Math.min(120, Math.round(area / 28000)));
         const seamPadding = 24;
         const fragment = document.createDocumentFragment();
         const aspectRatio = starSheetWidth / Math.max(1, viewportHeight);
@@ -251,8 +252,14 @@
       document.addEventListener("mousemove", markMouseActivity);
       document.addEventListener("keydown", handleKeydown);
       function onViewportResize() {
-        populateStars();
-        layoutBottomArtboard();
+        if (resizeRafId !== null) {
+          window.cancelAnimationFrame(resizeRafId);
+        }
+        resizeRafId = window.requestAnimationFrame(() => {
+          populateStars();
+          layoutBottomArtboard();
+          resizeRafId = null;
+        });
       }
 
       window.addEventListener("resize", onViewportResize);
